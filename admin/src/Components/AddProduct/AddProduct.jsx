@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './AddProduct.css'
 import upload_area from '../../assets/upload_area.svg'
+import { adminFetch } from '../../api'
 
 const AddProduct = () => {
 
@@ -21,35 +22,39 @@ const AddProduct = () => {
     }
 
     const Add_Product = async () => {
-        console.log(productDetails);
-        let responseData;
-        let product = productDetails;
-
+        if (!image) {
+            window.alert('Please select a product image.')
+            return
+        }
         let formData = new FormData();
         formData.append('product',image);
 
-        await fetch('http://localhost:4000/upload',{
-            method:'POST',
-            headers:{
-                Accept:'application/json',
-            },
-            body:formData,
-        }).then((resp) => resp.json()).then((data)=>{responseData=data})
+        try {
+            const uploadResponse = await adminFetch('/upload', {
+                method: 'POST',
+                body: formData,
+            })
+            const uploadData = await uploadResponse.json()
+            if (!uploadResponse.ok || !uploadData.success) {
+                throw new Error(uploadData.error || 'Image upload failed.')
+            }
 
-        if(responseData.success)
-        {
-            product.image = responseData.image_url;
-            console.log(product)
-            await fetch('http://localhost:4000/addproduct',{
+            const product = { ...productDetails, image: uploadData.image_url }
+            const productResponse = await adminFetch('/addproduct', {
                 method:'POST',
                 headers:{
                     Accept:'application/json',
                     'Content-Type':'application/json',
                 },
                 body:JSON.stringify(product),
-            }).then((resp)=>resp.json()).then((data)=>{
-                data.success?alert("Product Added"):alert("Failed")
             })
+            const result = await productResponse.json()
+            if (!productResponse.ok || !result.success) {
+                throw new Error(result.error || 'Product could not be added.')
+            }
+            window.alert('Product added.')
+        } catch (error) {
+            window.alert(error instanceof Error ? error.message : 'Product could not be added.')
         }
     }
 

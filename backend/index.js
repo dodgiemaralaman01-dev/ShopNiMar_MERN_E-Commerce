@@ -8,26 +8,141 @@ const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const rateLimit = require("express-rate-limit");
+const { isPasswordHash, verifyPassword } = require("./adminPassword");
 const { type } = require("os");
 const { log } = require("console");
 
 const mongoUri = process.env.MONGODB_URI;
-const jwtSecret = process.env.JWT_SECRET;
-if (!mongoUri || !jwtSecret) {
-    throw new Error("MONGODB_URI and JWT_SECRET must be set in the environment");
+const userJwtSecret = process.env.JWT_SECRET;
+const adminCookieName = "shopnimar_admin";
+const adminOrigin = process.env.ADMIN_ORIGIN || "http://localhost:5173";
+const allowedOrigins = new Set([
+    "http://localhost:3000",
+    adminOrigin,
+    ...(process.env.ALLOWED_ORIGINS || "").split(",").map((origin) => origin.trim()),
+].filter(Boolean));
+
+if (!mongoUri || !userJwtSecret || userJwtSecret.length < 32) {
+    throw new Error("MONGODB_URI and JWT_SECRET must be set in backend/.env");
 }
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.has(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error("Origin is not allowed by CORS"));
+    },
+    credentials: true,
+}));
+app.use(cookieParser());
 
 // Database Connection With MongoDB
 mongoose.connect(mongoUri);
+
+function isAdminAuthConfigured() {
+    return Boolean(
+        process.env.ADMIN_EMAIL &&
+        process.env.ADMIN_EMAIL.trim() &&
+        isPasswordHash(process.env.ADMIN_PASSWORD_HASH) &&
+        process.env.ADMIN_JWT_SECRET &&
+        process.env.ADMIN_JWT_SECRET.trim().length >= 32
+    );
+}
+
+function requireAdminOrigin(req, res, next) {
+    if (req.get("origin") !== adminOrigin) {
+        return res.status(403).json({ success: false, error: "Request origin is not allowed." });
+    }
+    return next();
+}
+
+function requireAdmin(req, res, next) {
+    if (!isAdminAuthConfigured()) {
+        return res.status(503).json({ success: false, error: "Admin authentication is not configured." });
+    }
+
+    const token = req.cookies[adminCookieName];
+    if (!token) {
+        return res.status(401).json({ success: false, error: "Admin authentication is required." });
+    }
+
+    try {
+        const payload = jwt.verify(token, process.env.ADMIN_JWT_SECRET, {
+            audience: "shopnimar-admin",
+            issuer: "shopnimar-api",
+        });
+        if (payload.sub !== "admin") {
+            return res.status(401).json({ success: false, error: "Admin authentication is required." });
+        }
+        return next();
+    } catch (error) {
+        return res.status(401).json({ success: false, error: "Admin authentication is required." });
+    }
+}
+
+const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: "Too many login attempts. Please try again later." },
+});
 
 // API Creation
 
 app.get("/",(req, res) => {
     res.send("Express App is Running")
 })
+
+app.post("/admin/login", requireAdminOrigin, adminLoginLimiter, async (req, res) => {
+    if (!isAdminAuthConfigured()) {
+        return res.status(503).json({ success: false, error: "Admin authentication is not configured." });
+    }
+
+    const { email, password } = req.body || {};
+    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
+        return res.status(400).json({ success: false, error: "Email and password are required." });
+    }
+
+    const emailMatches = email.trim().toLowerCase() === process.env.ADMIN_EMAIL.trim().toLowerCase();
+    const passwordMatches = await verifyPassword(password, process.env.ADMIN_PASSWORD_HASH);
+    if (!emailMatches || !passwordMatches) {
+        return res.status(401).json({ success: false, error: "Invalid email or password." });
+    }
+
+    const token = jwt.sign({ sub: "admin" }, process.env.ADMIN_JWT_SECRET, {
+        audience: "shopnimar-admin",
+        expiresIn: "30m",
+        issuer: "shopnimar-api",
+    });
+
+    res.cookie(adminCookieName, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 30 * 60 * 1000,
+        path: "/",
+    });
+    return res.json({ success: true });
+});
+
+app.get("/admin/session", requireAdminOrigin, requireAdmin, (req, res) => {
+    res.json({ success: true });
+});
+
+app.post("/admin/logout", requireAdminOrigin, (req, res) => {
+    res.clearCookie(adminCookieName, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+    });
+    return res.status(204).end();
+});
 
 // Image Storage Engine
 
@@ -43,7 +158,10 @@ const upload = multer({storage:storage})
 // Creating Upload Endpoint for Images
 app.use('/images',express.static('upload/images'))
 
-app.post("/upload",upload.single('product'),(req,res)=>{
+app.post("/upload", requireAdminOrigin, requireAdmin, upload.single('product'),(req,res)=>{
+    if (!req.file) {
+        return res.status(400).json({ success: false, error: "An image file is required." });
+    }
     res.json({
         success:1,
         image_url:`http://localhost:${port}/images/${req.file.filename}`
@@ -87,7 +205,7 @@ const Product = mongoose.model("Product",{
     },
 })
 
-app.post('/addproduct',async (req,res)=>{
+app.post('/addproduct',requireAdminOrigin,requireAdmin,async (req,res)=>{
     let products = await Product.find({});
     let id;
     if(products.length>0)
@@ -117,7 +235,7 @@ app.post('/addproduct',async (req,res)=>{
 })
 
 // Creating API for Deleting Products
-app.post('/removeproduct',async (req,res)=>{
+app.post('/removeproduct',requireAdminOrigin,requireAdmin,async (req,res)=>{
     await Product.findOneAndDelete({id:req.body.id});
     console.log("Removed");
     res.json({
@@ -182,7 +300,7 @@ app.post('/signup',async (req,res)=>{
         }
     }
 
-    const token = jwt.sign(data,jwtSecret);
+    const token = jwt.sign(data,userJwtSecret);
     res.json({success:true,token})
 })
 
@@ -197,7 +315,7 @@ app.post('/login',async (req,res)=>{
                     id:user.id
                 }
             }
-            const token = jwt.sign(data,jwtSecret);
+            const token = jwt.sign(data,userJwtSecret);
             res.json({success:true,token});
         }
         else{
@@ -233,7 +351,7 @@ app.get('/popularinwomen',async (req,res)=>{
         }
         else{
             try {
-                const data = jwt.verify(token,jwtSecret);
+                const data = jwt.verify(token,userJwtSecret);
                 req.user = data.user;
                 next();
             } catch (error) {
