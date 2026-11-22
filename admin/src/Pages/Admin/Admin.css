@@ -1,0 +1,22 @@
+.admin {
+  display: flex;
+  align-items: flex-start;
+  min-height: calc(100vh - 106px);
+  padding: 18px;
+  gap: 18px;
+}
+
+.admin > div:last-child,
+.admin > .add-product,
+.admin > .list-product {
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .admin {
+    flex-direction: column;
+    min-height: 0;
+    padding: 12px;
+    gap: 12px;
+  }
+}

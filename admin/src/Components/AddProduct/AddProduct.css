@@ -1,0 +1,93 @@
+.add-product {
+  box-sizing: border-box;
+  width: min(800px, calc(100% - 36px));
+  padding: 34px 46px;
+  margin: 0 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow:
+    0 18px 45px rgba(81, 93, 155, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+.addproduct-itemfield{
+    width: 100%;
+    color: #7b7b7b;
+    font-size: 16px;
+}
+.addproduct-itemfield input{
+  box-sizing: border-box;
+  width: 100%;
+  height: 50px;
+  border-radius: 10px;
+  padding: 0 15px;
+  border: 1px solid rgba(139, 151, 188, 0.32);
+  outline: none;
+  color: #394057;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  font-family: 'Poppins';
+  font-size: 14px;
+  transition: border 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.addproduct-itemfield input:focus,
+.add-product-selector:focus {
+  border-color: rgba(96, 121, 255, 0.72);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 0 0 4px rgba(96, 121, 255, 0.1);
+}
+.addproduct-price{
+    display: flex;
+    gap: 40px;
+}
+.add-product-selector{
+  padding: 10px;
+  width: 120px;
+  height: 50px;
+  font-size: 14px;
+  color: #394057;
+  border: 1px solid rgba(139, 151, 188, 0.32);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.58);
+  outline: none;
+}
+.addproduct-thumbnail-img{
+  height: 120px;
+  width: 120px;
+  padding: 10px;
+  border: 1px solid rgba(139, 151, 188, 0.24);
+  border-radius: 14px;
+  object-fit: contain;
+  margin: 10px 0px;
+  background: rgba(255, 255, 255, 0.46);
+  cursor: pointer;
+}
+.addproduct-btn{
+  margin-top: 20px;
+  width: 160px;
+  height: 50px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7187ff, #5b67de);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  cursor: pointer;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 12px 24px rgba(96, 121, 255, 0.28);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.addproduct-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px rgba(96, 121, 255, 0.34);
+}
+@media(max-width: 800px){
+    .add-product{
+        width: auto;
+        padding: 30px;
+        margin: 20px;
+    }
+}
