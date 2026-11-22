@@ -1,6 +1,6 @@
 # Shop Ni Mar
 
-Shop Ni Mar is a MERN Stack e-commerce website for thrift clothing, offering affordable styles for men, women, and kids. It provides a convenient way to browse clothing online, explore product collections, and shop without having to visit a thrift store in person.
+Shop Ni Mar is a MERN Stack e-commerce application for thrift clothing, offering affordable styles for men, women, and kids. It provides a convenient way to browse clothing online, explore product collections, and shop without having to visit a thrift store in person.
 
 ## About
 
